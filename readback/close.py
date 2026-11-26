@@ -1,5 +1,6 @@
 from contracts import Problem, text_value
 from control.show import get_show, mark_show_closed
+from dispatch.packs import pending_pack_id
 from readback.archive import get_archive_by_show, store_archive
 from readback.reconciliation import reconcile_close
 
@@ -21,6 +22,9 @@ def close_show(db, show_id, request_id):
     archive = get_archive_by_show(db, show.show_id)
     if archive is None:
         show.ensure_running()
+        pack_id = pending_pack_id(db, show.show_id)
+        if pack_id is not None:
+            raise Problem(409, 'insert_pack_pending', pack_id=pack_id)
         evidence = reconcile_close(db, show)
         if evidence.missing_cards:
             raise Problem(409, 'required_cards_missing', missing_cards=list(evidence.missing_cards))

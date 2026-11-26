@@ -2,6 +2,7 @@ from contracts import text_value
 from control.show import get_show
 from dispatch.candidates import resolve_candidates
 from dispatch.ledger import append_send
+from dispatch.packs import next_program_seq
 from dispatch.receipts import find_send_receipt, request_signature, store_send_receipt
 from dispatch.selection import first_unused_card
 from editions.lookup import get_edition
@@ -17,7 +18,8 @@ def _send(db, show, request_id, signature, selector, key_id=None):
     edition = get_edition(db, show.edition_id)
     candidates = resolve_candidates(edition, selector)
     card = first_unused_card(db, show.show_id, candidates)
-    result = append_send(db, show.show_id, card, request_id, key_id).as_payload()
+    seq = next_program_seq(db, show.show_id)
+    result = append_send(db, show.show_id, card, request_id, key_id, seq=seq).as_payload()
     store_send_receipt(db, show.show_id, request_id, signature, result)
     return result
 

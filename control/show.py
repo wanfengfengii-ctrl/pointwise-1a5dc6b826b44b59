@@ -14,6 +14,13 @@ CREATE TABLE IF NOT EXISTS shows (
 );
 '''
 
+SHOW_OPTION_SCHEMA = '''
+CREATE TABLE IF NOT EXISTS show_options (
+    show_id TEXT NOT NULL PRIMARY KEY REFERENCES shows(show_id),
+    insert_mode INTEGER NOT NULL DEFAULT 0 CHECK (insert_mode IN (0, 1))
+);
+'''
+
 
 @dataclass(frozen=True)
 class ShowRecord:
@@ -21,6 +28,7 @@ class ShowRecord:
     edition_id: str
     required_cards: frozenset[str]
     state: str
+    insert_mode: bool = False
 
     def ensure_running(self):
         if self.state != 'running':
@@ -28,11 +36,17 @@ class ShowRecord:
 
 
 def _find_show(db, show_id):
-    row = db.execute('SELECT * FROM shows WHERE show_id = ?', (show_id,)).fetchone()
+    row = db.execute('''
+        SELECT s.*, COALESCE(o.insert_mode, 0) AS insert_mode
+        FROM shows AS s
+        LEFT JOIN show_options AS o ON o.show_id = s.show_id
+        WHERE s.show_id = ?
+    ''', (show_id,)).fetchone()
     if row is None:
         return None
     return ShowRecord(row['show_id'], row['edition_id'],
-                      frozenset(json.loads(row['required_cards'])), row['state'])
+                      frozenset(json.loads(row['required_cards'])), row['state'],
+                      bool(row['insert_mode']))
 
 
 def get_show(db, show_id):
@@ -43,9 +57,11 @@ def get_show(db, show_id):
     return show
 
 
-def open_show(db, show_id, edition_id, bindings, required_cards):
+def open_show(db, show_id, edition_id, bindings, required_cards, insert_mode=False):
     show_id = text_value(show_id, 'show_id')
     edition = get_edition(db, edition_id)
+    if not isinstance(insert_mode, bool):
+        raise Problem(422, 'invalid_insert_mode')
     keys = validate_bindings(edition, bindings)
     if not isinstance(required_cards, list):
         raise Problem(422, 'invalid_required_cards')
@@ -54,10 +70,13 @@ def open_show(db, show_id, edition_id, bindings, required_cards):
     if previous is None:
         db.execute('INSERT INTO shows VALUES (?, ?, ?, ?)',
                    (show_id, edition.edition_id, json.dumps(sorted(required)), 'running'))
+        db.execute('INSERT INTO show_options(show_id, insert_mode) VALUES (?, ?)',
+                   (show_id, int(insert_mode)))
         store_bindings(db, show_id, keys)
     else:
         previous.ensure_running()
         if (previous.edition_id != edition.edition_id or previous.required_cards != required
+                or previous.insert_mode != insert_mode
                 or read_bindings(db, show_id) != keys):
             raise Problem(409, 'show_configuration_conflict', show_id=show_id)
     return {'show_id': show_id, 'edition_id': edition.edition_id, 'state': 'running'}

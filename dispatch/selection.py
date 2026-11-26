@@ -1,9 +1,10 @@
 from contracts import Problem
 from dispatch.ledger import used_card_ids
+from dispatch.packs import pending_pack_card_ids
 
 
 def first_unused_card(db, show_id, candidates):
-    used = used_card_ids(db, show_id)
+    used = used_card_ids(db, show_id) | pending_pack_card_ids(db, show_id)
     for card in candidates:
         if card.card_id not in used:
             return card

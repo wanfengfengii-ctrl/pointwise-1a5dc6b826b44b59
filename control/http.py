@@ -7,11 +7,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from contracts import Problem, require_fields, text_value
 from control.bindings import BINDING_SCHEMA
+from control.insert import insert_reserve, insert_return
 from control.keys import send_key
 from control.requests import KEY_REQUEST_SCHEMA
-from control.show import SHOW_SCHEMA, open_show
+from control.show import SHOW_OPTION_SCHEMA, SHOW_SCHEMA, open_show
 from control.store import connect_database, initialize_database, read_transaction, write_transaction
-from dispatch.ledger import SEND_LEDGER_SCHEMA
+from dispatch.ledger import SEND_LEDGER_SCHEMA, migrate_ledger
+from dispatch.packs import PACK_SCHEMA
 from dispatch.receipts import SEND_RECEIPT_SCHEMA
 from dispatch.send import send_manual
 from editions.issue import EDITION_SCHEMA, issue_edition
@@ -22,9 +24,9 @@ from readback.close import CLOSE_REQUEST_SCHEMA, close_show
 from readback.inbox import read_inbox
 from scripts.drafts import DRAFT_SCHEMA, put_draft
 
-_SCHEMAS = (DRAFT_SCHEMA, EDITION_SCHEMA, ISSUE_REQUEST_SCHEMA, SHOW_SCHEMA, BINDING_SCHEMA,
-            SEND_LEDGER_SCHEMA, SEND_RECEIPT_SCHEMA, KEY_REQUEST_SCHEMA, ARCHIVE_SCHEMA,
-            CLOSE_REQUEST_SCHEMA)
+_SCHEMAS = (DRAFT_SCHEMA, EDITION_SCHEMA, ISSUE_REQUEST_SCHEMA, SHOW_SCHEMA,
+            SHOW_OPTION_SCHEMA, BINDING_SCHEMA, SEND_LEDGER_SCHEMA, PACK_SCHEMA,
+            SEND_RECEIPT_SCHEMA, KEY_REQUEST_SCHEMA, ARCHIVE_SCHEMA, CLOSE_REQUEST_SCHEMA)
 
 
 def _read_edition(db, edition_id):
@@ -54,7 +56,10 @@ class _Operation:
 _ROUTES = {
     '/draft': _Operation(put_draft, ('draft_id', 'cards', 'groups', 'order')),
     '/issue': _Operation(issue_edition, ('draft_id', 'request_id')),
-    '/open': _Operation(open_show, ('show_id', 'edition_id', 'bindings', 'required_cards')),
+    '/open': _Operation(open_show, ('show_id', 'edition_id', 'bindings', 'required_cards'),
+                        ('insert_mode',)),
+    '/insert_reserve': _Operation(insert_reserve, ('show_id', 'pack_id', 'cards')),
+    '/insert_return': _Operation(insert_return, ('show_id', 'pack_id', 'played')),
     '/key': _Operation(send_key, ('show_id', 'key_id', 'request_id')),
     '/send': _Operation(send_manual, ('show_id', 'request_id'), ('group', 'cards')),
     '/inbox': _Operation(read_inbox, ('show_id', 'seat', 'after'), writes=False),
@@ -139,6 +144,8 @@ class _PromptServer(ThreadingHTTPServer):
 
 def make_server(database, port=0, handler_class=PromptRequestHandler):
     initialize_database(database, _SCHEMAS)
+    with closing(connect_database(database)) as db:
+        migrate_ledger(db)
     return _PromptServer(database, port, handler_class)
 
 

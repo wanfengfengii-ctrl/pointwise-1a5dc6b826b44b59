@@ -6,7 +6,7 @@ def expect(actual, expected):
         raise AssertionError(f'expected {expected!r}, got {actual!r}')
 
 
-def main():
+def normal_demo():
     data = sample()
     with HTTPFixture() as service:
         def call(operation, payload, expected_status=200):
@@ -64,6 +64,12 @@ def main():
                  ['editions/issue.py', 'control/keys.py', 'dispatch/selection.py', 'dispatch/ledger.py',
                   'readback/inbox.py', 'readback/reconciliation.py', 'readback/archive.py'],
                  '按固定卡序手算 G 先给 A，H 给 C，再从 G 取 B。按席分出位置 1、3 和 2，场报保留同一发行及三条实发。')
+
+
+def main():
+    normal_demo()
+    from tests.insert_flow import demonstrate
+    demonstrate()
 
 
 if __name__ == '__main__':

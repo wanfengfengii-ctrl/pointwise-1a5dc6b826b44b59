@@ -110,10 +110,12 @@ class APITestCase(TestCase):
         self.call('draft', **draft)
         return self.call('issue', draft_id=draft['draft_id'], request_id=request_id)
 
-    def open(self, edition_id, *, show_id='S', required_cards=None, bindings=None, status=200):
+    def open(self, edition_id, *, show_id='S', required_cards=None, bindings=None,
+             status=200, insert_mode=False):
         return self.call('open', status, show_id=show_id, edition_id=edition_id,
                          bindings={'K': 'G', 'L': 'H'} if bindings is None else bindings,
-                         required_cards=[] if required_cards is None else required_cards)
+                         required_cards=[] if required_cards is None else required_cards,
+                         insert_mode=insert_mode)
 
     def manual(self, request_id, cards, status=200, *, show_id='S', discard=False):
         return self.call('send', status, show_id=show_id, request_id=request_id,

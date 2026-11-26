@@ -12,12 +12,19 @@ CREATE TABLE IF NOT EXISTS show_sends (
     position INTEGER NOT NULL CHECK (position > 0),
     request_id TEXT NOT NULL,
     key_id TEXT,
+    pack_id TEXT,
     PRIMARY KEY (show_id, seq),
     UNIQUE (show_id, card_id),
     UNIQUE (show_id, request_id)
 );
 CREATE INDEX IF NOT EXISTS show_sends_seat_seq ON show_sends(show_id, seat, seq);
 '''
+
+
+def migrate_ledger(db):
+    columns = {row['name'] for row in db.execute('PRAGMA table_info(show_sends)')}
+    if columns and 'pack_id' not in columns:
+        db.execute('ALTER TABLE show_sends ADD COLUMN pack_id TEXT')
 
 
 @dataclass(frozen=True)
@@ -32,31 +39,41 @@ class SendRecord:
     position: int
     request_id: str
     key_id: str | None
+    pack_id: str | None = None
 
     def as_payload(self):
+        source = {
+            'edition_id': self.edition_id, 'draft_id': self.draft_id,
+            'card_id': self.card_id,
+        }
+        if self.pack_id is not None:
+            return {
+                'show_id': self.show_id, 'seq': self.seq, 'card_id': self.card_id,
+                'text': self.text, 'seat': self.seat, 'position': self.position,
+                'source': source,
+                'origin': {'kind': 'offline', 'pack_id': self.pack_id},
+            }
         origin = {'kind': 'manual'} if self.key_id is None else {'kind': 'key', 'key_id': self.key_id}
         return {
             'show_id': self.show_id, 'seq': self.seq, 'card_id': self.card_id,
             'text': self.text, 'seat': self.seat, 'position': self.position,
-            'request_id': self.request_id, 'origin': origin,
-            'source': {
-                'edition_id': self.edition_id, 'draft_id': self.draft_id,
-                'card_id': self.card_id,
-            },
+            'request_id': self.request_id, 'origin': origin, 'source': source,
         }
 
 
-def append_send(db, show_id, card, request_id, key_id=None):
-    seq = db.execute('SELECT COALESCE(MAX(seq), 0) + 1 FROM show_sends WHERE show_id = ?',
-                     (show_id,)).fetchone()[0]
+def append_send(db, show_id, card, request_id, key_id=None, *, seq=None, pack_id=None):
+    if seq is None:
+        seq = db.execute('SELECT COALESCE(MAX(seq), 0) + 1 FROM show_sends WHERE show_id = ?',
+                         (show_id,)).fetchone()[0]
     record = SendRecord(show_id, seq, card.edition_id, card.draft_id, card.card_id,
-                        card.text, card.seat, card.position, request_id, key_id)
+                        card.text, card.seat, card.position, request_id, key_id, pack_id)
     db.execute('''
         INSERT INTO show_sends(show_id, seq, edition_id, draft_id, card_id, text,
-                               seat, position, request_id, key_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               seat, position, request_id, key_id, pack_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (record.show_id, record.seq, record.edition_id, record.draft_id, record.card_id,
-          record.text, record.seat, record.position, record.request_id, record.key_id))
+          record.text, record.seat, record.position, record.request_id, record.key_id,
+          record.pack_id))
     return record
 
 
@@ -67,6 +84,13 @@ def used_card_ids(db, show_id):
 
 def list_show_sends(db, show_id):
     rows = db.execute('SELECT * FROM show_sends WHERE show_id = ? ORDER BY seq', (show_id,))
+    return [SendRecord(**dict(row)) for row in rows]
+
+
+def list_seat_sends(db, show_id, seat):
+    rows = db.execute('''
+        SELECT * FROM show_sends WHERE show_id = ? AND seat = ? ORDER BY seq
+    ''', (show_id, seat))
     return [SendRecord(**dict(row)) for row in rows]
 
 
