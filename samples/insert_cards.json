@@ -1,0 +1,13 @@
+{
+  "draft_file": "samples/show.json",
+  "issue": {"draft_id": "D", "request_id": "I-insert"},
+  "open": {"show_id": "S-insert", "edition_id": "E1", "bindings": {"K": "G", "L": "H"}, "required_cards": ["A", "B"], "insert_mode": true},
+  "reserve": {"show_id": "S-insert", "pack_id": "P", "cards": ["A"]},
+  "key": {"show_id": "S-insert", "key_id": "K", "request_id": "K-ins"},
+  "manual": {"show_id": "S-insert", "request_id": "M-ins", "group": "G"},
+  "first_read": {"show_id": "S-insert", "seat": "left", "after": null},
+  "return_played": {"show_id": "S-insert", "pack_id": "P", "played": ["A"]},
+  "return_empty": {"show_id": "S-insert", "pack_id": "P", "played": []},
+  "close": {"show_id": "S-insert", "request_id": "CL-insert"},
+  "archive_read": {"show_id": "S-insert"}
+}

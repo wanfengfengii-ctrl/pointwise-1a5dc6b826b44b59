@@ -1,0 +1,24 @@
+{
+  "draft": {
+    "draft_id": "D",
+    "cards": [
+      {"card_id": "A", "text": "左幕收桌", "seat": "left"},
+      {"card_id": "B", "text": "左幕备桌", "seat": "left"},
+      {"card_id": "C", "text": "右幕灯转暖", "seat": "right"}
+    ],
+    "groups": {"G": ["B", "A"], "H": ["C"]},
+    "order": ["A", "B", "C"]
+  },
+  "issue": {"draft_id": "D", "request_id": "I1"},
+  "open": {"show_id": "S", "bindings": {"K": "G", "L": "H"}, "required_cards": ["A", "C"]},
+  "key": {"show_id": "S", "key_id": "K", "request_id": "K1"},
+  "manual": [
+    {"show_id": "S", "request_id": "M1", "group": "H"},
+    {"show_id": "S", "request_id": "M2", "group": "G"}
+  ],
+  "inboxes": [
+    {"show_id": "S", "seat": "left", "after": 0},
+    {"show_id": "S", "seat": "right", "after": 0}
+  ],
+  "close": {"show_id": "S", "request_id": "CL1"}
+}
